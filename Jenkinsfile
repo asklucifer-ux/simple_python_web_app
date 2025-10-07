@@ -11,9 +11,9 @@ pipeline {
         stage('Install') {
             steps {
                 sh '''
-                    python3 -m venv venv        # create virtual environment
-                    . venv/bin/activate         # activate it
-                    pip install --upgrade pip   # upgrade pip
+                    python3 -m venv venv
+                    . venv/bin/activate
+                    pip install --upgrade pip
                     pip install -r requirements.txt
                 '''
             }
@@ -28,27 +28,29 @@ pipeline {
             }
         }
 
-        // CORRECTED stage for Trivy Security Scan
+        // FINAL stage for Trivy Security Scan
         stage('Security Scan') {
             steps {
                 sh '''
-                    # Scan the filesystem for vulnerabilities based on requirements.txt
-                    # Fail the build if any HIGH or CRITICAL severity vulnerabilities are found.
-                    trivy fs --exit-code 1 --severity HIGH,CRITICAL .
-
-                    # Generate an HTML report using the reliable, built-in html format.
-                    trivy fs --format html --output trivy-report.html .
+                    # Specifically scan requirements.txt and output the results as a JSON file.
+                    # This command will no longer fail the build immediately. The plugin will handle it.
+                    trivy fs --format json --output trivy-report.json requirements.txt
                 '''
             }
         }
     }
 
-    // This block runs after all stages are complete
     post {
         always {
-            // Archive the Trivy report so you can view it from the Jenkins build page
-            echo 'Archiving reports...'
-            archiveArtifacts artifacts: 'trivy-report.html', allowEmptyArchive: true
+            // Use the Warnings NG plugin to parse the Trivy report and display the results.
+            recordIssues(
+                tools: [trivy(pattern: 'trivy-report.json')],
+                failOnError: true,
+                qualityGates: [
+                    [threshold: 1, type: 'HIGH', unstable: false],
+                    [threshold: 1, type: 'CRITICAL', unstable: false]
+                ]
+            )
         }
     }
 }
