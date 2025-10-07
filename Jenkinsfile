@@ -40,14 +40,14 @@ pipeline {
 
     post {
         always {
-            // This block contains the final, correct syntax for the Warnings plugin
+            // This block contains the final, correct syntax for the Warnings plugin's quality gates.
             recordIssues(
                 tools: [trivy(pattern: 'trivy-report.json')],
                 failOnError: true,
                 qualityGates: [
-                    // FINAL FIX: The parameter is 'type' and the values are uppercase strings
-                    [threshold: 1, type: 'HIGH', unstable: false],
-                    [threshold: 1, type: 'ERROR', unstable: false] // 'ERROR' is used for CRITICAL severity
+                    // FINAL FIX: Use the correct types to count total issues of a given severity.
+                    [threshold: 1, type: 'TOTAL_HIGH', unstable: false],
+                    [threshold: 1, type: 'TOTAL_ERROR', unstable: false] // 'TOTAL_ERROR' is for CRITICAL
                 ]
             )
         }
