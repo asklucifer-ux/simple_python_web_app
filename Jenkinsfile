@@ -28,17 +28,16 @@ pipeline {
             }
         }
 
-        // New stage for Trivy Security Scan
+        // CORRECTED stage for Trivy Security Scan
         stage('Security Scan') {
             steps {
                 sh '''
-                    # Filesystem scan for vulnerabilities, especially in requirements.txt
+                    # Scan the filesystem for vulnerabilities based on requirements.txt
                     # Fail the build if any HIGH or CRITICAL severity vulnerabilities are found.
-                    # Output the results as a table in the console log.
-                    trivy fs --exit-code 1 --severity HIGH,CRITICAL --scanners vuln .
+                    trivy fs --exit-code 1 --severity HIGH,CRITICAL .
 
-                    # Generate an HTML report for archiving.
-                    trivy fs --format template --template "@trivy-ci/html.tpl" -o trivy-report.html .
+                    # Generate an HTML report using the reliable, built-in html format.
+                    trivy fs --format html --output trivy-report.html .
                 '''
             }
         }
