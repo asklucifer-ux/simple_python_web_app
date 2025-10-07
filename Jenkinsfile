@@ -42,13 +42,13 @@ pipeline {
 
     post {
         always {
-            // Use the Warnings NG plugin to parse the Trivy report and display the results.
             recordIssues(
                 tools: [trivy(pattern: 'trivy-report.json')],
                 failOnError: true,
                 qualityGates: [
-                    [threshold: 1, type: 'HIGH', unstable: false],
-                    [threshold: 1, type: 'CRITICAL', unstable: false]
+                    // The fix is to use 'severity' instead of 'type'
+                    [threshold: 1, severity: 'HIGH', unstable: false],
+                    [threshold: 1, severity: 'CRITICAL', unstable: false]
                 ]
             )
         }
