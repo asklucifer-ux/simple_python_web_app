@@ -2,6 +2,7 @@ pipeline {
     agent any
 
     stages {
+
         stage('Checkout') {
             steps {
                 git branch: 'main', url: 'https://github.com/sarthak20052005/simple_python_web_app.git'
@@ -10,9 +11,9 @@ pipeline {
 
         stage('Install') {
             steps {
-                sh '''
-                    python3 -m venv venv
-                    . venv/bin/activate
+                bat '''
+                    python -m venv venv
+                    venv\\Scripts\\activate
                     pip install --upgrade pip
                     pip install -r requirements.txt
                 '''
@@ -21,8 +22,8 @@ pipeline {
 
         stage('Test') {
             steps {
-                sh '''
-                    . venv/bin/activate
+                bat '''
+                    venv\\Scripts\\activate
                     pytest --maxfail=1 --disable-warnings -q
                 '''
             }
@@ -30,9 +31,9 @@ pipeline {
 
         stage('Security Scan') {
             steps {
-                sh '''
-                    # Scan requirements.txt for vulnerabilities
-                    trivy fs --format json --output trivy-report.json requirements.txt
+                bat '''
+                    echo Running Trivy scan...
+                    trivy fs --severity HIGH,CRITICAL --exit-code 1 --format json --output trivy-report.json .
                 '''
             }
         }
@@ -40,16 +41,34 @@ pipeline {
 
     post {
         always {
-            // This block contains the final, correct syntax for the Warnings plugin's quality gates.
-            recordIssues(
-                tools: [trivy(pattern: 'trivy-report.json')],
-                failOnError: true,
-                qualityGates: [
-                    // FINAL FIX: Use the correct types to count total issues of a given severity.
-                    [threshold: 1, type: 'TOTAL_HIGH', unstable: false],
-                    [threshold: 1, type: 'TOTAL_ERROR', unstable: false] // 'TOTAL_ERROR' is for CRITICAL
-                ]
-            )
+            archiveArtifacts artifacts: 'trivy-report.json', fingerprint: true
+            echo "Trivy scan report archived."
+
+            // Fail the build manually if vulnerabilities exist
+            script {
+                def report = readJSON file: 'trivy-report.json'
+                if (!report.Results) {
+                    echo "No vulnerabilities found."
+                    return
+                }
+                
+                def highCritical = 0
+                report.Results.each { r ->
+                    if (r.Vulnerabilities) {
+                        r.Vulnerabilities.each { v ->
+                            if (v.Severity == "HIGH" || v.Severity == "CRITICAL") {
+                                highCritical++
+                            }
+                        }
+                    }
+                }
+
+                if (highCritical > 0) {
+                    error "Build failed — Found ${highCritical} HIGH/CRITICAL vulnerabilities."
+                } else {
+                    echo "No HIGH or CRITICAL vulnerabilities found."
+                }
+            }
         }
     }
 }
