@@ -32,8 +32,13 @@ pipeline {
         stage('Security Scan') {
             steps {
                 bat '''
-                    echo Running Trivy scan...
-                    trivy fs --severity HIGH,CRITICAL --exit-code 1 --format json --output trivy-report.json .
+                    echo Running Trivy scan (JSON + HTML)...
+                    REM produce JSON (used by post-processing/failing logic)
+                    trivy fs --severity HIGH,CRITICAL --format json --output trivy-report.json .
+
+                    REM produce HTML using Trivy's contrib template (if available)
+                    REM If your Trivy binary doesn't include @contrib/html.tpl, put a local template (e.g. trivy-html.tpl) in the repo and use --template ./trivy-html.tpl
+                    trivy fs --severity HIGH,CRITICAL --format template --template "@contrib/html.tpl" --output trivy-report.html .
                 '''
             }
         }
@@ -41,17 +46,17 @@ pipeline {
 
     post {
         always {
-            archiveArtifacts artifacts: 'trivy-report.json', fingerprint: true
-            echo "Trivy scan report archived."
+            archiveArtifacts artifacts: 'trivy-report.json, trivy-report.html', fingerprint: true
+            echo "Trivy scan reports archived."
 
-            // Fail the build manually if vulnerabilities exist
+            // Fail the build manually if HIGH/CRITICAL vulnerabilities exist
             script {
                 def report = readJSON file: 'trivy-report.json'
                 if (!report.Results) {
                     echo "No vulnerabilities found."
                     return
                 }
-                
+
                 def highCritical = 0
                 report.Results.each { r ->
                     if (r.Vulnerabilities) {
